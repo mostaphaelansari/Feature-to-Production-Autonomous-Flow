@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://diffguard.local/contracts/semantic-analysis.schema.json",
+  "title": "SemanticAnalysis",
+  "description": "Structured semantic analysis output derived from a unified git diff.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mr",
+    "summary",
+    "files_changed",
+    "risk_areas",
+    "change_categories",
+    "signals",
+    "behavioral_impact"
+  ],
+  "properties": {
+    "mr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repository", "branch", "commit_sha"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "repository": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string", "minLength": 1 },
+        "commit_sha": { "type": "string", "minLength": 7 }
+      }
+    },
+    "summary": { "type": "string", "minLength": 1 },
+    "files_changed": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "status",
+          "language",
+          "lines_added",
+          "lines_removed",
+          "change_types",
+          "sensitive"
+        ],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "status": {
+            "type": "string",
+            "enum": ["added", "modified", "deleted", "renamed"]
+          },
+          "language": { "type": "string", "minLength": 1 },
+          "lines_added": { "type": "integer", "minimum": 0 },
+          "lines_removed": { "type": "integer", "minimum": 0 },
+          "change_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "new_function",
+                "modified_logic",
+                "deleted_guard",
+                "api_signature_change",
+                "db_schema_change",
+                "config_change",
+                "control_flow_change",
+                "removed_conditional",
+                "auth_related_edit",
+                "privilege_escalation_pattern"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "sensitive": { "type": "boolean" }
+        }
+      }
+    },
+    "risk_areas": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "authentication",
+          "authorization",
+          "payment",
+          "database",
+          "concurrency",
+          "infrastructure",
+          "api",
+          "configuration",
+          "data_integrity",
+          "security"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "change_categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "refactor",
+          "feature",
+          "hotfix",
+          "security_sensitive",
+          "infra_change"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "auth_touched",
+        "payment_touched",
+        "db_migration_detected",
+        "concurrency_logic_changed",
+        "validation_removed",
+        "total_added",
+        "total_removed"
+      ],
+      "properties": {
+        "auth_touched": { "type": "boolean" },
+        "payment_touched": { "type": "boolean" },
+        "db_migration_detected": { "type": "boolean" },
+        "concurrency_logic_changed": { "type": "boolean" },
+        "validation_removed": { "type": "boolean" },
+        "total_added": { "type": "integer", "minimum": 0 },
+        "total_removed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "behavioral_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "notes"],
+      "properties": {
+        "level": { "type": "string", "enum": ["low", "medium", "high"] },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

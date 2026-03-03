@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diffguard"
+version = "0.1.0"
+description = "Diff-First Autonomous Review & Risk Agent"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Mostapha EL ANSARI"}]
+requires-python = ">=3.10"
+dependencies = [
+    "jsonschema>=4.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+risk-engine = "src.risk_engine.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

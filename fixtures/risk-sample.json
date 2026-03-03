@@ -1,0 +1,36 @@
+{
+  "mr_id": "42",
+  "risk_score": 82,
+  "risk_level": "high",
+  "threshold_bucket": "gt_70",
+  "reason_codes": [
+    "LARGE_DELTA",
+    "AUTH_CODE_MODIFIED",
+    "VALIDATION_REMOVED",
+    "SECURITY_SENSITIVE_EDIT"
+  ],
+  "weights": [
+    {
+      "reason_code": "LARGE_DELTA",
+      "weight": 2
+    },
+    {
+      "reason_code": "AUTH_CODE_MODIFIED",
+      "weight": 30
+    },
+    {
+      "reason_code": "VALIDATION_REMOVED",
+      "weight": 25
+    },
+    {
+      "reason_code": "SECURITY_SENSITIVE_EDIT",
+      "weight": 25
+    }
+  ],
+  "recommended_actions": [
+    "block_merge",
+    "require_security_review",
+    "generate_additional_tests",
+    "enforce_canary"
+  ]
+}

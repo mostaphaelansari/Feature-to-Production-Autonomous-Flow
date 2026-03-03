@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://diffguard.local/contracts/action-plan.schema.json",
+  "title": "ActionPlan",
+  "description": "Executable actions derived from risk assessment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mr_id", "decision", "actions"],
+  "properties": {
+    "mr_id": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "approved_with_reviewers",
+        "blocked_pending_security",
+        "blocked_policy_violation"
+      ]
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "params"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "AUTO_APPROVE",
+              "REQUEST_REVIEWERS",
+              "RUN_PIPELINE_STAGE",
+              "GENERATE_TESTS",
+              "BLOCK_MERGE",
+              "SET_DEPLOYMENT_MODE"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

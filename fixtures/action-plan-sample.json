@@ -1,0 +1,26 @@
+{
+  "mr_id": "42",
+  "decision": "blocked_pending_security",
+  "actions": [
+    {
+      "type": "BLOCK_MERGE",
+      "params": {}
+    },
+    {
+      "type": "REQUEST_REVIEWERS",
+      "params": {
+        "group": "security-team"
+      }
+    },
+    {
+      "type": "GENERATE_TESTS",
+      "params": {}
+    },
+    {
+      "type": "SET_DEPLOYMENT_MODE",
+      "params": {
+        "mode": "canary"
+      }
+    }
+  ]
+}

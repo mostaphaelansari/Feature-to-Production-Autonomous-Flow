@@ -1,0 +1,49 @@
+{
+  "mr": {
+    "id": "42",
+    "repository": "local/repo",
+    "branch": "feat/auth",
+    "commit_sha": "abcdef123"
+  },
+  "summary": "Parsed 1 files from diff.",
+  "files_changed": [
+    {
+      "path": "src/auth.py",
+      "status": "modified",
+      "language": "python",
+      "lines_added": 3,
+      "lines_removed": 2,
+      "change_types": [
+        "auth_related_edit",
+        "control_flow_change",
+        "deleted_guard",
+        "modified_logic",
+        "removed_conditional"
+      ],
+      "sensitive": true
+    }
+  ],
+  "risk_areas": [
+    "authentication"
+  ],
+  "change_categories": [
+    "refactor",
+    "security_sensitive"
+  ],
+  "signals": {
+    "auth_touched": true,
+    "payment_touched": false,
+    "db_migration_detected": false,
+    "concurrency_logic_changed": false,
+    "validation_removed": true,
+    "total_added": 3,
+    "total_removed": 2
+  },
+  "behavioral_impact": {
+    "level": "low",
+    "notes": [
+      "Total delta lines: 5",
+      "Detected risk areas: authentication"
+    ]
+  }
+}

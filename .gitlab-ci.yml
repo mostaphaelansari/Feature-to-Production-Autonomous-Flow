@@ -1,0 +1,94 @@
+stages:
+  - analyze
+  - score
+  - enforce
+
+default:
+  image: python:3.12
+  before_script:
+    - python --version
+    - pip install --quiet jsonschema
+    - export PYTHONPATH="$CI_PROJECT_DIR"
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - when: never
+
+variables:
+  GIT_DEPTH: "0"
+  # Protected ref from which policy scripts are sourced.
+  # Set POLICY_REF to a tag or branch that MR authors cannot push to.
+  # When empty, scripts run from the MR branch (less secure).
+  POLICY_REF: ""
+
+# ── Stage 1: Analyze ─────────────────────────────────────────────
+# Runs from the MR branch (the diff parser is not a security gate).
+semantic_diff_analyzer:
+  stage: analyze
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - |
+      BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_MERGE_REQUEST_TARGET_BRANCH_SHA}"
+      if [ -z "$BASE_SHA" ]; then
+        git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+        BASE_SHA="$(git merge-base HEAD "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME")"
+      fi
+      echo "Using BASE_SHA=$BASE_SHA and CI_COMMIT_SHA=$CI_COMMIT_SHA"
+      git diff --unified=0 "$BASE_SHA" "$CI_COMMIT_SHA" > mr.diff
+    - python scripts/semantic_from_diff.py --diff mr.diff --output semantic-analysis.json
+  artifacts:
+    when: always
+    paths:
+      - mr.diff
+      - semantic-analysis.json
+    expire_in: 7 days
+
+# ── Stage 2: Score ───────────────────────────────────────────────
+# Gate logic: runs from protected ref when POLICY_REF is set.
+risk_score:
+  stage: score
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  needs:
+    - job: semantic_diff_analyzer
+      artifacts: true
+  script:
+    - |
+      if [ -n "$POLICY_REF" ]; then
+        echo "Running risk engine from protected ref: $POLICY_REF"
+        git fetch origin "$POLICY_REF"
+        git checkout "origin/$POLICY_REF" -- src/risk_engine/ src/contracts.py
+      fi
+    - python -m src.risk_engine.cli --input semantic-analysis.json --output risk-assessment.json
+    - cat risk-assessment.json
+  artifacts:
+    when: always
+    paths:
+      - risk-assessment.json
+    expire_in: 7 days
+
+# ── Stage 3: Enforce ─────────────────────────────────────────────
+# Gate logic: runs from protected ref when POLICY_REF is set.
+policy_enforcer:
+  stage: enforce
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  needs:
+    - job: risk_score
+      artifacts: true
+  script:
+    - |
+      if [ -n "$POLICY_REF" ]; then
+        echo "Running policy enforcer from protected ref: $POLICY_REF"
+        git fetch origin "$POLICY_REF"
+        git checkout "origin/$POLICY_REF" -- scripts/enforce_policy.py src/contracts.py contracts/
+      fi
+    - python scripts/enforce_policy.py --assessment risk-assessment.json --action-plan action-plan.json
+    - cat action-plan.json
+  artifacts:
+    when: always
+    paths:
+      - action-plan.json
+    expire_in: 7 days

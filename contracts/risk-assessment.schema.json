@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://diffguard.local/contracts/risk-assessment.schema.json",
+  "title": "RiskAssessment",
+  "description": "Risk engine output computed from semantic diff analysis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mr_id",
+    "risk_score",
+    "risk_level",
+    "threshold_bucket",
+    "reason_codes",
+    "weights",
+    "recommended_actions"
+  ],
+  "properties": {
+    "mr_id": { "type": "string", "minLength": 1 },
+    "risk_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+    "threshold_bucket": {
+      "type": "string",
+      "enum": ["lt_30", "between_30_70", "gt_70"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "AUTH_CODE_MODIFIED",
+          "PAYMENT_LOGIC_TOUCHED",
+          "DB_MIGRATION_DETECTED",
+          "LARGE_DELTA",
+          "VALIDATION_REMOVED",
+          "CONCURRENCY_CHANGED",
+          "SECURITY_SENSITIVE_EDIT",
+          "ARCHITECTURE_DRIFT",
+          "CONFIG_CHANGE"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "weights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason_code", "weight"],
+        "properties": {
+          "reason_code": { "type": "string", "minLength": 1 },
+          "weight": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "recommended_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "auto_approve",
+          "tag_domain_expert",
+          "run_enhanced_tests",
+          "require_security_review",
+          "generate_additional_tests",
+          "block_merge",
+          "enforce_canary"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}

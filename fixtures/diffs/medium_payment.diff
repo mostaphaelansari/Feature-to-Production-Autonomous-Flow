@@ -1,0 +1,13 @@
+diff --git a/src/payment_service.py b/src/payment_service.py
+index 1111111..2222222 100644
+--- a/src/payment_service.py
++++ b/src/payment_service.py
+@@ -3,2 +3,4 @@
+-def charge(order):
+-    return gateway.charge(order.total)
++def charge(order):
++    # add idempotency key handling for safer retries
++    if not order.idempotency_key:
++        order.idempotency_key = "auto-generated-key"
++    return gateway.charge(order.total, key=order.idempotency_key)
+
