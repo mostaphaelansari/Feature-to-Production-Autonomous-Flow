@@ -17,18 +17,25 @@ workflow:
 
 variables:
   GIT_DEPTH: "0"
-  # Protected ref from which policy scripts are sourced.
-  # Set POLICY_REF to a tag or branch that MR authors cannot push to.
-  # When empty, scripts run from the MR branch (less secure).
+  # REQUIRED FOR PRODUCTION: Set POLICY_REF to a protected branch or tag
+  # (e.g. "main" or "v1.0.0") that MR authors cannot push to.
+  # All gate scripts (analyze, score, enforce) will be sourced from this ref.
+  # When empty, scripts run from the MR branch — INSECURE, use only for dev.
   POLICY_REF: ""
 
 # ── Stage 1: Analyze ─────────────────────────────────────────────
-# Runs from the MR branch (the diff parser is not a security gate).
+# Gate logic: runs analyzer from protected ref when POLICY_REF is set.
 semantic_diff_analyzer:
   stage: analyze
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   script:
+    - |
+      if [ -n "$POLICY_REF" ]; then
+        echo "Running semantic analyzer from protected ref: $POLICY_REF"
+        git fetch origin "$POLICY_REF"
+        git checkout "origin/$POLICY_REF" -- scripts/semantic_from_diff.py
+      fi
     - |
       BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_MERGE_REQUEST_TARGET_BRANCH_SHA}"
       if [ -z "$BASE_SHA" ]; then

@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DiffGuard — Autonomous Code Risk Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a12;
+    --bg-card: #12121e;
+    --bg-card-hover: #1a1a2e;
+    --text: #e4e4f0;
+    --text-dim: #8888a8;
+    --accent: #7c5cfc;
+    --accent-glow: rgba(124,92,252,0.25);
+    --cyan: #00d4ff;
+    --green: #00e88f;
+    --red: #ff4d6a;
+    --orange: #ff9f43;
+    --yellow: #ffd93d;
+    --gradient: linear-gradient(135deg, #7c5cfc 0%, #00d4ff 100%);
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Slide container ─────────────────────────────────── */
+  .deck {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+    overflow-y: auto;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ── Typography ──────────────────────────────────────── */
+  h1 {
+    font-size: 3.5rem;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  h1 .gradient {
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+    letter-spacing: -0.5px;
+  }
+
+  h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--cyan);
+  }
+
+  .subtitle {
+    font-size: 1.3rem;
+    color: var(--text-dim);
+    font-weight: 400;
+    max-width: 700px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 20px;
+  }
+
+  .tag.purple {
+    background: var(--accent-glow);
+    color: var(--accent);
+    border: 1px solid rgba(124,92,252,0.3);
+  }
+
+  /* ── Cards ───────────────────────────────────────────── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    width: 100%;
+    max-width: 1100px;
+    margin-top: 16px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(124,92,252,0.3);
+    box-shadow: 0 8px 32px var(--accent-glow);
+  }
+
+  .card .icon {
+    font-size: 2rem;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .card p {
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+
+  /* ── Pipeline visual ─────────────────────────────────── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 40px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pipeline-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 28px;
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    min-width: 170px;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .pipeline-stage:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 24px rgba(0,212,255,0.15);
+  }
+
+  .pipeline-stage .stage-icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+  }
+
+  .pipeline-stage .stage-name {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+
+  .pipeline-stage .stage-output {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--cyan);
+    background: rgba(0,212,255,0.08);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+  }
+
+  .pipeline-arrow {
+    font-size: 1.6rem;
+    color: var(--accent);
+    margin: 0 8px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* ── Code block ──────────────────────────────────────── */
+  .code-block {
+    background: #0d0d18;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 24px 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    width: 100%;
+    max-width: 700px;
+    white-space: pre;
+    color: var(--text-dim);
+  }
+
+  .code-block .key { color: var(--cyan); }
+  .code-block .str { color: var(--green); }
+  .code-block .num { color: var(--orange); }
+  .code-block .bool { color: var(--accent); }
+  .code-block .comment { color: #555570; font-style: italic; }
+
+  /* ── Risk meter ──────────────────────────────────────── */
+  .risk-meter {
+    width: 100%;
+    max-width: 600px;
+    margin: 24px 0;
+  }
+
+  .meter-bar {
+    height: 12px;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--green) 0%, var(--yellow) 40%, var(--orange) 65%, var(--red) 100%);
+    position: relative;
+    overflow: visible;
+  }
+
+  .meter-needle {
+    position: absolute;
+    top: -8px;
+    width: 4px;
+    height: 28px;
+    background: white;
+    border-radius: 2px;
+    transition: left 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 12px rgba(255,255,255,0.5);
+  }
+
+  .meter-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .meter-labels .low { color: var(--green); }
+  .meter-labels .med { color: var(--orange); }
+  .meter-labels .high { color: var(--red); }
+
+  /* ── Score badge ─────────────────────────────────────── */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 28px;
+    border-radius: 100px;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 16px 0;
+  }
+
+  .score-badge.high {
+    background: rgba(255,77,106,0.12);
+    color: var(--red);
+    border: 2px solid rgba(255,77,106,0.3);
+  }
+
+  .score-badge.medium {
+    background: rgba(255,159,67,0.12);
+    color: var(--orange);
+    border: 2px solid rgba(255,159,67,0.3);
+  }
+
+  .score-badge.low {
+    background: rgba(0,232,143,0.12);
+    color: var(--green);
+    border: 2px solid rgba(0,232,143,0.3);
+  }
+
+  /* ── Weight bars ─────────────────────────────────────── */
+  .weight-list {
+    width: 100%;
+    max-width: 550px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .weight-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .weight-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    width: 200px;
+    text-align: right;
+    color: var(--text-dim);
+  }
+
+  .weight-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .weight-bar {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 0;
+  }
+
+  .weight-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    width: 30px;
+  }
+
+  /* ── Actions list ────────────────────────────────────── */
+  .action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 500px;
+    margin: 16px 0;
+  }
+
+  .action-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .action-item .action-icon {
+    font-size: 1.4rem;
+  }
+
+  .action-item .action-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--cyan);
+    background: rgba(0,212,255,0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: auto;
+  }
+
+  /* ── Security shield ─────────────────────────────────── */
+  .shield-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+    margin-top: 20px;
+  }
+
+  .shield-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px;
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .shield-item .shield-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+  }
+
+  .shield-item p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* ── Stats row ───────────────────────────────────────── */
+  .stats-row {
+    display: flex;
+    gap: 40px;
+    margin: 32px 0;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat .stat-number {
+    font-size: 3rem;
+    font-weight: 900;
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  /* ── Navigation ──────────────────────────────────────── */
+  .nav {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+    background: rgba(18,18,30,0.9);
+    backdrop-filter: blur(12px);
+    padding: 10px 20px;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .nav-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .nav-dot.active {
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+    width: 28px;
+    border-radius: 100px;
+  }
+
+  .nav-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+
+  /* ── Background effects ──────────────────────────────── */
+  .bg-glow {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .bg-glow.purple {
+    background: var(--accent);
+    top: -200px;
+    right: -100px;
+  }
+
+  .bg-glow.cyan {
+    background: var(--cyan);
+    bottom: -200px;
+    left: -100px;
+  }
+
+  /* ── Diff visual ─────────────────────────────────────── */
+  .diff-block {
+    background: #0d0d18;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    width: 100%;
+    max-width: 600px;
+    white-space: pre;
+  }
+
+  .diff-block .diff-add { color: var(--green); }
+  .diff-block .diff-del { color: var(--red); }
+  .diff-block .diff-meta { color: var(--text-dim); }
+
+  /* ── Two-column layout ───────────────────────────────── */
+  .two-col {
+    display: flex;
+    gap: 48px;
+    width: 100%;
+    max-width: 1100px;
+    align-items: flex-start;
+  }
+
+  .two-col .col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Animate on active ───────────────────────────────── */
+  .slide.active .animate-in {
+    animation: fadeUp 0.6s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .slide.active .delay-1 { animation-delay: 0.1s; opacity: 0; }
+  .slide.active .delay-2 { animation-delay: 0.2s; opacity: 0; }
+  .slide.active .delay-3 { animation-delay: 0.3s; opacity: 0; }
+  .slide.active .delay-4 { animation-delay: 0.4s; opacity: 0; }
+  .slide.active .delay-5 { animation-delay: 0.5s; opacity: 0; }
+
+  /* ── Responsive ──────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .slide { padding: 32px 24px; }
+    h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.6rem; }
+    .pipeline { flex-direction: column; }
+    .pipeline-arrow { transform: rotate(90deg); }
+    .two-col { flex-direction: column; }
+    .shield-grid { grid-template-columns: 1fr; }
+    .stats-row { flex-wrap: wrap; gap: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow purple"></div>
+<div class="bg-glow cyan"></div>
+
+<div class="deck" id="deck">
+
+  <!-- ══════════════════════ SLIDE 1: TITLE ══════════════════════ -->
+  <div class="slide active" data-slide="0">
+    <div class="tag purple animate-in">Autonomous Code Review</div>
+    <h1 class="animate-in delay-1">
+      <span class="gradient">DiffGuard</span>
+    </h1>
+    <p class="subtitle animate-in delay-2">
+      An autonomous agent that reads every merge request diff, scores its risk,
+      and gates production deployments — no human bottleneck required.
+    </p>
+    <div class="stats-row animate-in delay-3">
+      <div class="stat">
+        <div class="stat-number">3</div>
+        <div class="stat-label">Pipeline Stages</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">35</div>
+        <div class="stat-label">Tests Passing</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">8</div>
+        <div class="stat-label">Risk Signals</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Fail-Closed</div>
+      </div>
+    </div>
+    <p class="subtitle animate-in delay-4" style="font-size: 0.85rem; margin-top: 32px; opacity: 0.4;">
+      Press → or click to navigate
+    </p>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 2: PROBLEM ══════════════════════ -->
+  <div class="slide" data-slide="1">
+    <span class="tag purple animate-in">The Problem</span>
+    <h2 class="animate-in delay-1">Code reviews don't scale</h2>
+    <div class="card-grid animate-in delay-2">
+      <div class="card">
+        <span class="icon">⏳</span>
+        <h3>Bottleneck</h3>
+        <p>Senior engineers spend 30%+ of their time reviewing code. MRs queue up, blocking deploys for hours or days.</p>
+      </div>
+      <div class="card">
+        <span class="icon">🎯</span>
+        <h3>Inconsistency</h3>
+        <p>Tired reviewers miss auth bugs on Friday afternoon. Risk assessment varies wildly between team members.</p>
+      </div>
+      <div class="card">
+        <span class="icon">🔓</span>
+        <h3>Blind Spots</h3>
+        <p>No one catches when a validation check is quietly removed. Security-sensitive changes slip through.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 3: SOLUTION ══════════════════════ -->
+  <div class="slide" data-slide="2">
+    <span class="tag purple animate-in">The Solution</span>
+    <h2 class="animate-in delay-1">Diff-first autonomous review</h2>
+    <p class="subtitle animate-in delay-2" style="margin-bottom: 32px;">
+      Every MR triggers a 3-stage pipeline that understands what changed,
+      scores the risk, and enforces policy — automatically.
+    </p>
+    <div class="pipeline animate-in delay-3">
+      <div class="pipeline-stage">
+        <span class="stage-icon">📝</span>
+        <span class="stage-name">Analyze</span>
+        <span style="font-size: 0.85rem; color: var(--text-dim)">Parse diff → semantics</span>
+        <span class="stage-output">semantic.json</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <span class="stage-icon">⚖️</span>
+        <span class="stage-name">Score</span>
+        <span style="font-size: 0.85rem; color: var(--text-dim)">Evaluate risk signals</span>
+        <span class="stage-output">risk.json</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <span class="stage-icon">🛡️</span>
+        <span class="stage-name">Enforce</span>
+        <span style="font-size: 0.85rem; color: var(--text-dim)">Block / approve / tag</span>
+        <span class="stage-output">action.json</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 4: DEMO INPUT ══════════════════════ -->
+  <div class="slide" data-slide="3">
+    <span class="tag purple animate-in">Live Demo</span>
+    <h2 class="animate-in delay-1">A risky MR arrives…</h2>
+    <div class="two-col animate-in delay-2">
+      <div class="col">
+        <h3>The Diff</h3>
+        <div class="diff-block">
+<span class="diff-meta">diff --git a/src/auth.py b/src/auth.py</span>
+<span class="diff-meta">--- a/src/auth.py</span>
+<span class="diff-meta">+++ b/src/auth.py</span>
+<span class="diff-meta">@@ -10,5 +10,6 @@</span>
+<span class="diff-del">-    if not validate_token(token):</span>
+<span class="diff-del">-        raise AuthError("invalid")</span>
+<span class="diff-add">+    # skip validation for speed</span>
+<span class="diff-add">+    user = get_user(token)</span>
+<span class="diff-add">+    return user</span></div>
+      </div>
+      <div class="col">
+        <h3>Semantic Analysis</h3>
+        <div class="code-block">
+{
+  <span class="key">"files_changed"</span>: [{
+    <span class="key">"path"</span>: <span class="str">"src/auth.py"</span>,
+    <span class="key">"sensitive"</span>: <span class="bool">true</span>,
+    <span class="key">"change_types"</span>: [
+      <span class="str">"auth_related_edit"</span>,
+      <span class="str">"deleted_guard"</span>,
+      <span class="str">"removed_conditional"</span>
+    ]
+  }],
+  <span class="key">"signals"</span>: {
+    <span class="key">"auth_touched"</span>: <span class="bool">true</span>,
+    <span class="key">"validation_removed"</span>: <span class="bool">true</span>
+  }
+}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 5: RISK SCORE ══════════════════════ -->
+  <div class="slide" data-slide="4">
+    <span class="tag purple animate-in">Risk Engine</span>
+    <h2 class="animate-in delay-1">Score: weighted signal aggregation</h2>
+    <div class="score-badge high animate-in delay-2">🚨 82 / 100 — HIGH RISK</div>
+    <div class="risk-meter animate-in delay-3">
+      <div class="meter-bar">
+        <div class="meter-needle" id="needle" style="left: 82%"></div>
+      </div>
+      <div class="meter-labels">
+        <span class="low">0 — Low</span>
+        <span class="med">30–70 — Medium</span>
+        <span class="high">70+ — High</span>
+      </div>
+    </div>
+    <div class="weight-list animate-in delay-4">
+      <div class="weight-item">
+        <span class="weight-label">AUTH_CODE_MODIFIED</span>
+        <div class="weight-bar-bg"><div class="weight-bar" data-width="100" style="background: var(--red);"></div></div>
+        <span class="weight-value" style="color: var(--red);">+30</span>
+      </div>
+      <div class="weight-item">
+        <span class="weight-label">VALIDATION_REMOVED</span>
+        <div class="weight-bar-bg"><div class="weight-bar" data-width="83" style="background: var(--orange);"></div></div>
+        <span class="weight-value" style="color: var(--orange);">+25</span>
+      </div>
+      <div class="weight-item">
+        <span class="weight-label">SECURITY_SENSITIVE</span>
+        <div class="weight-bar-bg"><div class="weight-bar" data-width="83" style="background: var(--orange);"></div></div>
+        <span class="weight-value" style="color: var(--orange);">+25</span>
+      </div>
+      <div class="weight-item">
+        <span class="weight-label">LARGE_DELTA</span>
+        <div class="weight-bar-bg"><div class="weight-bar" data-width="7" style="background: var(--green);"></div></div>
+        <span class="weight-value" style="color: var(--green);">+2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 6: ACTION PLAN ══════════════════════ -->
+  <div class="slide" data-slide="5">
+    <span class="tag purple animate-in">Policy Enforcement</span>
+    <h2 class="animate-in delay-1">Decision: <span style="color: var(--red);">BLOCKED</span></h2>
+    <p class="subtitle animate-in delay-2" style="margin-bottom: 24px;">
+      The enforce stage converts the risk score into executable actions.<br>
+      High risk (>70) automatically blocks the merge.
+    </p>
+    <div class="action-list animate-in delay-3">
+      <div class="action-item">
+        <span class="action-icon">🚫</span>
+        Block merge request
+        <span class="action-type">BLOCK_MERGE</span>
+      </div>
+      <div class="action-item">
+        <span class="action-icon">👥</span>
+        Request security team review
+        <span class="action-type">REQUEST_REVIEWERS</span>
+      </div>
+      <div class="action-item">
+        <span class="action-icon">🧪</span>
+        Generate additional tests
+        <span class="action-type">GENERATE_TESTS</span>
+      </div>
+      <div class="action-item">
+        <span class="action-icon">🐤</span>
+        Enforce canary deployment
+        <span class="action-type">SET_DEPLOYMENT_MODE</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 7: SECURITY ══════════════════════ -->
+  <div class="slide" data-slide="6">
+    <span class="tag purple animate-in">Trust Model</span>
+    <h2 class="animate-in delay-1">Hardened against self-tampering</h2>
+    <div class="shield-grid animate-in delay-2">
+      <div class="shield-item">
+        <span class="shield-icon">🔒</span>
+        <div>
+          <h3>POLICY_REF</h3>
+          <p>Gate scripts are checked out from a protected branch that MR authors can't push to. Even if they modify the code, the pipeline runs trusted versions.</p>
+        </div>
+      </div>
+      <div class="shield-item">
+        <span class="shield-icon">✅</span>
+        <div>
+          <h3>Fail-Closed</h3>
+          <p>If the validator dependency is missing, the pipeline crashes — it never silently skips validation. Security is the default, not opt-in.</p>
+        </div>
+      </div>
+      <div class="shield-item">
+        <span class="shield-icon">📋</span>
+        <div>
+          <h3>JSON Contracts</h3>
+          <p>Every stage boundary validates payloads against strict JSON schemas. Malformed data between stages is caught before it can affect decisions.</p>
+        </div>
+      </div>
+      <div class="shield-item">
+        <span class="shield-icon">🧬</span>
+        <div>
+          <h3>Signal Accuracy</h3>
+          <p><code>validation_removed</code> only fires on removed lines — adding validation code never triggers a false positive.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 8: ARCHITECTURE ══════════════════════ -->
+  <div class="slide" data-slide="7">
+    <span class="tag purple animate-in">Architecture</span>
+    <h2 class="animate-in delay-1">Contract-driven pipeline</h2>
+    <div class="card-grid animate-in delay-2" style="grid-template-columns: repeat(3, 1fr); max-width: 900px;">
+      <div class="card" style="text-align: center;">
+        <span class="icon">📄</span>
+        <h3>semantic.schema.json</h3>
+        <p>MR metadata, files changed, change types, risk areas, signals</p>
+      </div>
+      <div class="card" style="text-align: center;">
+        <span class="icon">⚡</span>
+        <h3>risk.schema.json</h3>
+        <p>Score, level, threshold bucket, weighted reason codes, actions</p>
+      </div>
+      <div class="card" style="text-align: center;">
+        <span class="icon">🎯</span>
+        <h3>action.schema.json</h3>
+        <p>Decision (approved/blocked), typed executable actions + params</p>
+      </div>
+    </div>
+    <div class="code-block animate-in delay-3" style="margin-top: 24px; max-width: 900px; text-align: center; white-space: normal; font-size: 0.9rem;">
+      <span class="comment">// Data flows through validated contracts at every boundary</span><br>
+      <span class="str">git diff</span> → <span class="key">semantic.json</span> → <span class="key">risk.json</span> → <span class="key">action.json</span> → <span class="str">block / approve</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ SLIDE 9: CLOSING ══════════════════════ -->
+  <div class="slide" data-slide="8">
+    <div class="tag purple animate-in">Ship It</div>
+    <h1 class="animate-in delay-1">
+      <span class="gradient">Ready for production.</span>
+    </h1>
+    <p class="subtitle animate-in delay-2">
+      DiffGuard autonomously protects your codebase from risky deploys.
+      No manual review bottleneck. No security blind spots.
+    </p>
+    <div class="stats-row animate-in delay-3">
+      <div class="stat">
+        <div class="stat-number">35</div>
+        <div class="stat-label">Tests Passing</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">0</div>
+        <div class="stat-label">False Positives</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">&lt;2s</div>
+        <div class="stat-label">Pipeline Runtime</div>
+      </div>
+    </div>
+    <div class="code-block animate-in delay-4" style="margin-top: 32px; text-align: center; white-space: normal; max-width: 500px;">
+      <span class="comment"># Get started</span><br>
+      <span class="str">pip install -e ".[dev]"</span><br>
+      <span class="str">pytest tests/ -v</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ NAVIGATION ══════════════════════ -->
+<div class="nav" id="nav"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const nav = document.getElementById('nav');
+  let current = 0;
+
+  // Build nav dots
+  slides.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => goTo(i));
+    nav.appendChild(dot);
+  });
+
+  const counter = document.createElement('span');
+  counter.className = 'nav-counter';
+  counter.textContent = `1 / ${slides.length}`;
+  nav.appendChild(counter);
+
+  function goTo(n) {
+    if (n < 0 || n >= slides.length) return;
+    slides[current].classList.remove('active');
+    nav.children[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    nav.children[current].classList.add('active');
+    counter.textContent = `${current + 1} / ${slides.length}`;
+
+    // Animate weight bars on slide 5
+    if (current === 4) {
+      setTimeout(() => {
+        document.querySelectorAll('.weight-bar').forEach(bar => {
+          bar.style.width = bar.dataset.width + '%';
+        });
+      }, 400);
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(current - 1); }
+    if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+    if (e.key === 'End') { e.preventDefault(); goTo(slides.length - 1); }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      dx < 0 ? goTo(current + 1) : goTo(current - 1);
+    }
+  });
+</script>
+
+</body>
+</html>
