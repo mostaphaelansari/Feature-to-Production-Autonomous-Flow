@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mostaphaelansari/Feature-to-Production-Autonomous-Flow/schema/report-v1.schema.json",
+  "title": "DiffGuard report",
+  "description": "Output of `diffguard scan --format json` (schema_version 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool", "risk", "findings", "domains", "files", "stats", "suggested_reviewers"],
+  "$defs": {
+    "severity": { "enum": ["low", "medium", "high", "critical"] }
+  },
+  "properties": {
+    "schema_version": { "const": "1" },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "diffguard" },
+        "version": { "type": "string" }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "level", "reasons"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "level": { "enum": ["low", "medium", "high"] },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "points", "detail"],
+            "properties": {
+              "code": { "type": "string", "minLength": 1 },
+              "points": { "type": "integer" },
+              "detail": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "severity", "title", "message", "path", "line", "snippet", "kind"],
+        "properties": {
+          "rule_id": { "type": "string", "pattern": "^DG[0-9]{3}$" },
+          "severity": { "$ref": "#/$defs/severity" },
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "path": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "snippet": { "type": "string" },
+          "kind": { "enum": ["added", "removed"] }
+        }
+      }
+    },
+    "domains": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "line", "evidence"],
+          "properties": {
+            "path": { "type": "string" },
+            "line": { "type": ["integer", "null"] },
+            "evidence": { "type": "string" }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "status", "language", "kind", "added", "removed", "excluded"],
+        "properties": {
+          "path": { "type": "string" },
+          "status": { "enum": ["added", "modified", "deleted", "renamed"] },
+          "language": { "type": "string" },
+          "kind": { "enum": ["code", "test", "doc", "markup", "config", "binary"] },
+          "added": { "type": "integer", "minimum": 0 },
+          "removed": { "type": "integer", "minimum": 0 },
+          "excluded": { "type": "boolean" }
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "added", "removed", "code_lines_changed"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "added": { "type": "integer", "minimum": 0 },
+        "removed": { "type": "integer", "minimum": 0 },
+        "code_lines_changed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "suggested_reviewers": { "type": "array", "items": { "type": "string" } }
+  }
+}

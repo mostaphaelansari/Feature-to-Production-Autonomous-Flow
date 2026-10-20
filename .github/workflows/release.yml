@@ -1,0 +1,43 @@
+# Publish to PyPI when a version tag (v1.2.3) is pushed.
+# One-time setup: on pypi.org, add a "trusted publisher" for this repository with
+# workflow "release.yml" and environment "pypi". No API token is needed.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check tag matches package version
+        run: |
+          VERSION="$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('src/diffguard/__init__.py').read())[1])")"
+          [ "v$VERSION" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME != version $VERSION"; exit 1; }
+      - run: pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

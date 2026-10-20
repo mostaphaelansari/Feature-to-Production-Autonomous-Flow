@@ -1,1 +1,0 @@
-"""Semantic diff analyzer package."""
