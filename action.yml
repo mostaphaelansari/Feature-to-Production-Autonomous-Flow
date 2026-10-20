@@ -1,0 +1,119 @@
+name: DiffGuard
+description: Risk triage and security checks for pull requests. Scans only what the PR adds or removes.
+author: Mostapha EL ANSARI
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  fail-on:
+    description: Fail the check at this risk level or above (low, medium, high, never).
+    default: high
+  base:
+    description: Commit or ref to compare against. Defaults to the pull request's base commit.
+    default: ""
+  config:
+    description: Path to a config file. Defaults to .diffguard.toml or [tool.diffguard] in pyproject.toml.
+    default: ""
+  comment:
+    description: Post (and keep updated) a pull request comment with the report.
+    default: "true"
+  annotations:
+    description: Show findings inline on the pull request diff.
+    default: "true"
+  sarif-file:
+    description: Also write a SARIF report to this path, for github/codeql-action/upload-sarif.
+    default: ""
+  github-token:
+    description: Token used to post the comment. Needs pull-requests write permission.
+    default: ${{ github.token }}
+
+outputs:
+  risk-level:
+    description: low, medium or high.
+    value: ${{ steps.scan.outputs.risk-level }}
+  risk-score:
+    description: Score from 0 to 100.
+    value: ${{ steps.scan.outputs.risk-score }}
+  report-json:
+    description: Path to the JSON report.
+    value: ${{ steps.scan.outputs.report-json }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install DiffGuard
+      shell: bash
+      run: |
+        PY="$(command -v python3 || command -v python)"
+        VENV="$RUNNER_TEMP/diffguard-venv"
+        "$PY" -m venv "$VENV"
+        BIN="$VENV/bin"; [ -d "$VENV/Scripts" ] && BIN="$VENV/Scripts"
+        "$BIN/python" -m pip install --quiet --disable-pip-version-check "$GITHUB_ACTION_PATH"
+        echo "$BIN" >> "$GITHUB_PATH"
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        INPUT_BASE: ${{ inputs.base }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_SARIF: ${{ inputs.sarif-file }}
+        INPUT_ANNOTATIONS: ${{ inputs.annotations }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        BASE="${INPUT_BASE:-$PR_BASE_SHA}"
+        if [ -z "$BASE" ]; then
+          echo "::error::DiffGuard needs a base: run on pull_request events or set the 'base' input."
+          exit 2
+        fi
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "Shallow clone detected; fetching history (set fetch-depth: 0 on actions/checkout to skip this)."
+          git fetch --no-tags --quiet --unshallow origin || git fetch --no-tags --quiet --deepen=500 origin
+        fi
+        git cat-file -e "$BASE^{commit}" 2>/dev/null || git fetch --no-tags --quiet origin "$BASE"
+
+        REPORT="$RUNNER_TEMP/diffguard.json"
+        args=(scan --base "$BASE" --fail-on never -o "json=$REPORT" -o "markdown=$RUNNER_TEMP/diffguard.md")
+        [ -n "$INPUT_CONFIG" ] && args+=(--config "$INPUT_CONFIG")
+        [ -n "$INPUT_SARIF" ] && args+=(-o "sarif=$INPUT_SARIF")
+        [ "$INPUT_ANNOTATIONS" = "true" ] && args+=(--format github)
+        diffguard "${args[@]}"
+
+        python - "$REPORT" >> "$GITHUB_OUTPUT" <<'EOF'
+        import json, sys
+        risk = json.load(open(sys.argv[1], encoding="utf-8"))["risk"]
+        print(f"risk-level={risk['level']}")
+        print(f"risk-score={risk['score']}")
+        print(f"report-json={sys.argv[1]}")
+        EOF
+        cat "$RUNNER_TEMP/diffguard.md" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Comment on pull request
+      if: inputs.comment == 'true' && github.event.pull_request.number
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        BODY="$RUNNER_TEMP/diffguard.md"
+        MARKER='<!-- diffguard-report -->'
+        API="repos/$GITHUB_REPOSITORY/issues"
+        if ! ID="$(gh api "$API/$PR_NUMBER/comments" --paginate \
+             --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" 2>/dev/null | head -n1)"; then
+          echo "::warning::DiffGuard could not read PR comments (fork PR or missing pull-requests: write); skipping comment."
+          exit 0
+        fi
+        if [ -n "$ID" ]; then
+          gh api -X PATCH "$API/comments/$ID" -F body=@"$BODY" >/dev/null \
+            || echo "::warning::DiffGuard could not update its PR comment."
+        else
+          gh api -X POST "$API/$PR_NUMBER/comments" -F body=@"$BODY" >/dev/null \
+            || echo "::warning::DiffGuard could not post a PR comment (fork PR or missing pull-requests: write)."
+        fi
+
+    - name: Gate
+      shell: bash
+      env:
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+      run: diffguard gate "${{ steps.scan.outputs.report-json }}" --fail-on "$INPUT_FAIL_ON"

@@ -1,0 +1,7 @@
+- id: diffguard
+  name: diffguard
+  description: Block commits whose staged changes are high risk (secrets, injection, removed auth checks, ...).
+  entry: diffguard scan --staged
+  language: python
+  pass_filenames: false
+  stages: [pre-commit]

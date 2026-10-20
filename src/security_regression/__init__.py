@@ -1,1 +1,0 @@
-"""Security regression checks package."""

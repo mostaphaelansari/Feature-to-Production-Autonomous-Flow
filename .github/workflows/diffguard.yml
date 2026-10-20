@@ -1,0 +1,20 @@
+# DiffGuard reviewing its own pull requests, using the action from this checkout.
+name: DiffGuard
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diffguard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./
+        with:
+          fail-on: high
